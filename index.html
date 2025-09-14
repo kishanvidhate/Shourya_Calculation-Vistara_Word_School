@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Basic + − × ÷ — Excel Style</title>
+  <style>
+    :root{ --sheet:#ffffff; --grid:#e5e7eb; --accent:#2563eb; --text:#111827; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--text);
+      background: #f6f7fb url('./assets/background.jpg') center top/cover no-repeat fixed;
+    }
+    .wrap{
+      min-height:100dvh;
+      display:flex; align-items:center; justify-content:center;
+      padding: clamp(10px, 3vw, 40px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.0), rgba(255,255,255,0.6) 30%, rgba(255,255,255,0.85) 60%);
+    }
+    .panel{
+      width:min(900px, 98vw);
+      background: rgba(255,255,255,0.96);
+      border-radius: 22px;
+      border:1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.15);
+      padding: clamp(14px, 3vw, 26px);
+    }
+    h1{ margin:0 0 8px; font-size:clamp(22px, 3.6vw, 34px); }
+    .sub{ margin: 0 0 16px; color:#374151; }
+
+    .controls{
+      display:grid; grid-template-columns: repeat(12, 1fr); gap:12px; margin-bottom:14px;
+    }
+    .controls .cell{ grid-column: span 12; }
+    @media (min-width:720px){
+      .controls .cell--4{ grid-column: span 4; }
+    }
+    label{ display:block; font-weight:600; margin-bottom:6px; }
+    input[type="number"], select{
+      width:100%; padding:12px 12px; border-radius:14px; border:1px solid #d1d5db; background:#fff; font-size:16px;
+      outline:none; transition:border .15s ease, box-shadow .15s ease;
+    }
+    input[type="number"]:focus, select:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,0.15); }
+
+    .sheet{
+      background:var(--sheet);
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    table{ border-collapse: collapse; width:100%; font-size: 16px; }
+    thead th{
+      background:#f8fafc; text-align:left; padding:10px 12px; border-bottom:1px solid var(--grid);
+      font-weight:700;
+    }
+    tbody td{
+      padding:10px 12px; border-bottom:1px solid var(--grid);
+    }
+    tbody tr:last-child td{ border-bottom:0; }
+    .right{ text-align:right; }
+    .op{ font-weight:700; }
+    .muted{ color:#6b7280; }
+    footer{ margin-top:14px; text-align:center; font-size:12px; color:#6b7280; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="panel">
+      <h1>Basic Calculator — Excel Style</h1>
+      <p class="sub">Type values below. The four operations update instantly.</p>
+
+      <section class="controls">
+        <div class="cell cell--4">
+          <label for="a">Number A</label>
+          <input id="a" type="number" step="any" inputmode="decimal" placeholder="e.g., 12.5">
+        </div>
+        <div class="cell cell--4">
+          <label for="b">Number B</label>
+          <input id="b" type="number" step="any" inputmode="decimal" placeholder="e.g., 3">
+        </div>
+        <div class="cell cell--4">
+          <label for="d">Decimal places</label>
+          <select id="d">
+            <option value="-1">Auto (no rounding)</option>
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="sheet" role="region" aria-label="Results sheet">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30%">Operation</th>
+              <th class="right" style="width:25%">A</th>
+              <th class="right" style="width:25%">B</th>
+              <th class="right" style="width:20%">Result</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td class="op">A ＋ B</td><td class="right" data-a></td><td class="right" data-b></td><td class="right" data-res data-op="+"><span class="muted">—</span></td></tr>
+            <tr><td class="op">A − B</td><td class="right" data-a></td><td class="right" data-b></td><td class="right" data-res data-op="-"><span class="muted">—</span></td></tr>
+            <tr><td class="op">A × B</td><td class="right" data-a></td><td class="right" data-b></td><td class="right" data-res data-op="*"><span class="muted">—</span></td></tr>
+            <tr><td class="op">A ÷ B</td><td class="right" data-a></td><td class="right" data-b></td><td class="right" data-res data-op="/"><span class="muted">—</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <footer>Background uses your Mathematics image. Safe handling for divide-by-zero.</footer>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (s, el=document) => el.querySelector(s);
+      const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+      const a = $("#a"), b = $("#b"), d = $("#d");
+      const rows = $("#rows");
+
+      function fmt(n, decimals){
+        if (Number.isNaN(n)) return "—";
+        if (decimals >= 0) return Number(n.toFixed(decimals));
+        return n;
+      }
+
+      function update(){
+        const av = parseFloat(a.value);
+        const bv = parseFloat(b.value);
+        const dec = parseInt(d.value, 10);
+        // set A/B cells
+        $$(".right[data-a]", rows).forEach(el => el.textContent = Number.isNaN(av) ? "—" : fmt(av, dec));
+        $$(".right[data-b]", rows).forEach(el => el.textContent = Number.isNaN(bv) ? "—" : fmt(bv, dec));
+        // compute results
+        $$(".right[data-res]", rows).forEach(el => {
+          const op = el.dataset.op;
+          if(Number.isNaN(av) || Number.isNaN(bv)){
+            el.innerHTML = '<span class="muted">—</span>'; return;
+          }
+          let out;
+          switch(op){
+            case "+": out = av + bv; break;
+            case "-": out = av - bv; break;
+            case "*": out = av * bv; break;
+            case "/":
+              if (bv === 0){ el.textContent = "∞"; return; }
+              out = av / bv; break;
+          }
+          el.textContent = fmt(out, dec);
+        });
+      }
+
+      ["input","change"].forEach(ev => {
+        a.addEventListener(ev, update);
+        b.addEventListener(ev, update);
+        d.addEventListener(ev, update);
+      });
+
+      // Restore last state
+      const KEY = "excel-style-calc";
+      window.addEventListener("load", () => {
+        try{
+          const s = JSON.parse(localStorage.getItem(KEY)||"{}");
+          if(s.a!=null) a.value = s.a;
+          if(s.b!=null) b.value = s.b;
+          if(s.d!=null) d.value = s.d;
+        }catch{}
+        update();
+      });
+      window.addEventListener("beforeunload", () => {
+        localStorage.setItem(KEY, JSON.stringify({a:a.value, b:b.value, d:d.value}));
+      });
+    })();
+  </script>
+</body>
+</html>
